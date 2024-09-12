@@ -1,0 +1,36 @@
+/* Center the navbar title and logo vertically */
+.navbar-header {
+  display: flex;
+  align-items: center; /* Vertically center logo and title */
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center; /* Vertically align the logo and text */
+}
+
+.navbar-brand img {
+  height: 50px; /* Adjust the logo height if needed */
+  margin-right: 10px; /* Spacing between logo and title */
+}
+
+.navbar-brand span {
+  font-size: 24px;
+  font-weight: bold;
+  vertical-align: middle;
+  color: #1a708d;
+}
+
+.navbar-default {
+    background-color: #ffffff !important;
+}
+
+.navbar-nav > .active > a {
+  background-color: #033b61 !important; 
+  color: white !important;
+}
+
+.navbar-nav > li > a:hover {
+  background-color: #2980b9 !important;
+  color: white !important;
+}
