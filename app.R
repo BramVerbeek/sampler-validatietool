@@ -4,60 +4,6 @@ source.all("anc/")
 addResourcePath("www", "www")
 
 
-callback <- c(
-  "var id = $(table.table().node()).closest('.datatables').attr('id');",
-  "$.contextMenu({",
-  "  selector: '#' + id + ' td.factor input[type=text]',",
-  "  trigger: 'hover',",
-  "  build: function($trigger, e){",
-  "    var levels = $trigger.parent().data('levels');",
-  "    if(levels === undefined){",
-  "      var colindex = table.cell($trigger.parent()[0]).index().column;",
-  "      levels = table.column(colindex).data().unique();",
-  "    }",
-  "    var options = levels.reduce(function(result, item, index, array){",
-  "      result[index] = item;",
-  "      return result;",
-  "    }, {});",
-  "    return {",
-  "      autoHide: true,",
-  "      items: {",
-  "        dropdown: {",
-  "          name: 'Edit',",
-  "          type: 'select',",
-  "          options: options,",
-  "          selected: 0",
-  "        }",
-  "      },",
-  "      events: {",
-  "        show: function(opts){",
-  "          opts.$trigger.off('blur');",
-  "        },",
-  "        hide: function(opts){",
-  "          var $this = this;",
-  "          var data = $.contextMenu.getInputValues(opts, $this.data());",
-  "          var $input = opts.$trigger;",
-  "          $input.val(options[data.dropdown]);",
-  "          $input.trigger('change');",
-  "        }",
-  "      }",
-  "    };",
-  "  }",
-  "});"
-)
-
-createdCell <- function(levels){
-  if(missing(levels)){
-    return("function(td, cellData, rowData, rowIndex, colIndex){}")
-  }
-  quotedLevels <- toString(sprintf("\"%s\"", levels))
-  c(
-    "function(td, cellData, rowData, rowIndex, colIndex){",
-    sprintf("  $(td).attr('data-levels', '[%s]');", quotedLevels),
-    "}"
-  )
-}
-
 ui <- navbarPage(
   title = div(
     class = "navbar-brand",
@@ -108,7 +54,8 @@ ui <- navbarPage(
   tabPanel("Validatie", 
     fluidPage(
       h4(textOutput("validation_title")),
-      DTOutput("dtable")
+      DTOutput("dtable"),
+      DTOutput("selected_table")
     )
   ),
   tabPanel("Data Export", 
@@ -129,7 +76,7 @@ ui <- navbarPage(
         De applicatie is in continue aanbouw, zowel qua functionaliteiten als het toevoegen van nieuwe meetnetten.
         Voor de nieuwste versie, zie de 
         <b><a href='https://github.com/BramVerbeek/sampler-validatietool'>GitHub repository</a></b>. <br>
-        Deze tool kwam tot stand met behulp van generatieve AI. Bij vragen, mail naar 
+        Bij vragen, mail naar 
         <b><a href='mailto:b.verbeek@vmm.be'>b.verbeek@vmm.be</a></b>.
       </p>")
         )
@@ -199,7 +146,7 @@ server <- function(input, output, session) {
     plot5[[5]] 
   })
 
-  output$validation_title <- renderText({
+ output$validation_title <- renderText({
     req(input$meetpostopstelling)
     paste("Validatie voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
   })
@@ -208,9 +155,51 @@ server <- function(input, output, session) {
     paste("Plots voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
   })
 
-  output$dtable <- renderDataTable({
+
+ selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = character(), Validatiecode = character()))
+
+ output$dtable <- renderDataTable({
     req(input$meetpostopstelling)
-    datatable(processed_data()[[input$meetpostopstelling]])
+    df <- processed_data()[[input$meetpostopstelling]]
+    unique_parameters <- as.vector(unique(uploaded_data()$Parameter))
+    df_with_checkboxes <- df
+      for (col in unique_parameters) { 
+        df_with_checkboxes[[col]] <- paste0(
+        df[[col]],
+        '<br><input type="checkbox" id="', col, '_', df$Monsternummer, '" 
+        onchange="Shiny.onInputChange(\'checkbox_click\', {row: \'', df$Monsternummer, '\', col: \'', col, '\', value: this.checked})">'
+        )
+      }
+    datatable(df_with_checkboxes, escape = FALSE, selection = 'none', options = list(pageLength = 5))
+  })
+
+  observeEvent(input$checkbox_click, {
+    row_name <- input$checkbox_click$row  
+    col_name <- input$checkbox_click$col  
+    is_checked <- input$checkbox_click$value 
+    
+    df <- processed_data()[[input$meetpostopstelling]]
+
+    cell_value <- as.double(df[df$Monsternummer == row_name, col_name])
+    
+    current_selected <- selected_df()
+    
+    if (is_checked) {
+      updated_selected <- rbind(current_selected, data.frame(Monsternummer = row_name, Parameter = col_name, Waarde = cell_value, Validatiecode = NA))
+      selected_df(updated_selected)
+    } else {
+      updated_selected <- current_selected[!(current_selected$Monsternummer == row_name & current_selected$Parameter == col_name), ]
+      selected_df(updated_selected)
+    }
+  })
+
+  
+  # Render the updated long format table of selected entries
+  output$selected_table <- renderDT({
+    datatable(selected_df(),
+    escape = FALSE, selection = 'none',
+    options = list(dom = 't', paging = FALSE, ordering = FALSE)
+    )
   })
 
 }

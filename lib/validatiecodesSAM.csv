@@ -1,0 +1,85 @@
+﻿Code;Omschrijving;Valide;VALID
+10;valid - geen opmerking;Ja;1
+11;valid - geen neerslag;Ja;1
+110;invalid - geen opmerking;Nee;0
+111;invalid - geen monster;Nee;0
+112;invalid - onvoldoende monster;Nee;0
+113;invalid - hoge stofpiek;Nee;0
+12;valid - hoge stofpiek;Ja;1
+120;invalid - debiet buiten specificatie;Nee;0
+121;invalid - luchtvolume buiten specificatie;Nee;0
+122;invalid - houdbaarheid buiten specificatie;Nee;0
+123;invalid - houdbaarheid buiten specificatie + analytisch probleem;Nee;0
+124;invalid - debiet buiten specificatie + houdbaarheid buiten specificatie;Nee;0
+125;invalid - debiet buiten specificatie + houdbaarheid buiten specificatie + analytisch probleem;Nee;0
+126;invalid - debiet buiten specificatie + analytisch probleem;Nee;0
+127;invalid - afwijkend volume van depositiemonster;Nee;0
+128;invalid - lek tussen trechter en fles;Nee;0
+129;invalid - geen volume van depositiemonster beschikbaar;Nee;0
+130;invalid - buisje passieve sampler gebroken;Nee;0
+131;invalid - transportkoker gebroken;Nee;0
+132;invalid - monsterneming kon niet plaatsvinden of technisch probleem;Nee;0
+133;invalid - sampler lag op grond;Nee;0
+134;invalid - oververzadiging sampler;Nee;0
+135;invalid - fles depositiemeting stuk of gescheurd;Nee;0
+160;invalid - insecten/vliegjes;Nee;0
+161;invalid - beschadigde filterrand / filteroppervlakte;Nee;0
+162;invalid - grafische vergelijking met overige metingen (gravimetrisch / automatisch);Nee;0
+163;invalid - negatief gewicht;Nee;0
+164;invalid - technisch probleem bemonsteringstoestel / doorschuiven filters;Nee;0
+165;invalid - foute monsternemingskop;Nee;0
+170;invalid - kleiner dan -DL;Nee;0
+180;invalid - niet in meetprogramma;Nee;0
+181;invalid - analytisch probleem;Nee;0
+182;invalid - geen resultaat, interne standaard recovery te laag;Nee;0
+183;Invalid - contaminatie;Nee;0
+184;Invalid - foute integratie piek;Nee;0
+185;invalid - monster verloren in labo;Nee;0
+186;invalid - resultaat niet meer beschikbaar;Nee;0
+187;invalid - resultaat kan niet bepaald worden omdat er geen volume beschikbaar is;Nee;0
+188;invalid - indicatieve verbinding;Nee;0
+189;invalid - geen resultaat, interne standaard recovery te laag + >LOQ;Nee;0
+190;invalid - afgekeurd bij validatie;Nee;0
+191;invalid - blanco sampler met onrealistisch hoge waarde;Nee;0
+192;invalid - blootgestelde sampler met onrealistisch lage waarde;Nee;0
+20;valid - debiet buiten specificatie maar goedgekeurd;Ja;1
+21;valid - houdbaarheid buiten specificatie maar goedgekeurd;Ja;1
+22;valid - debiet buiten specificatie maar goedgekeurd + houdbaarheid buiten specificatie maar goedgekeurd;Ja;1
+23;valid - debiet buiten specificatie maar goedgekeurd + met blancocorrectie;Ja;1
+24;valid - debiet buiten specificatie maar goedgekeurd + houdbaarheid buiten specificatie maar goedgekeurd + met blancocorrectie;Ja;1
+25;valid - houdbaarheid buiten specificatie maar goedgekeurd + met blancocorrectie;Ja;1
+30;valid - tussentijds wisseling van kruiken;Ja;1
+31;valid - tussentijdse wisseling van kruiken + fles overgelopen;Ja;1
+32;valid - kruik/fles overgelopen;Ja;1
+33;valid - sampler lag op grond;Ja;1
+34;valid - kruik(en) gebroken;Ja;1
+35;valid - kruik was leeg;Ja;1
+40;valid - mengmonster van 2 weken;Ja;1
+41;valid - mengmonster van 4 weken;Ja;1
+42;valid - gemiddelde van 2 samplers;Ja;1
+43;valid - gemiddelde van 3 samplers;Ja;1
+44;valid - gemiddelde van 4 samplers;Ja;1
+50;valid - met blancocorrectie;Ja;1
+51;valid - resultaat monster zonder trechterspoeling;Ja;1
+52;valid - resultaat monster zonder trechterspoeling en tussen DL en -DL;Ja;1
+60;valid - ondanks insecten/vliegjes;Ja;1
+61;valid - ondanks onregelmatigheid filteroppervlakte;Ja;1
+62;valid - correctie veldblanco toegepast;Ja;1
+63;valid - ondanks verschil met overige metingen (gravimetrisch / automatisch);Ja;1
+70;valid - tussen DL en -DL;Ja;1
+71;valid - lager dan DL en vervangen door DL/2;Ja;1
+72;valid - lager dan DL maar geen resultaat (wel in meetprogramma maar niet gedetecteerd);Ja;1
+73;valid - lager dan DL en vervangen door DL;Ja;1
+74;valid - lager dan DL en vervangen door 0;Ja;1
+80;valid - gecombineerde meetonzekerheid >50%;Ja;1
+81;valid - verhoogde rapportagegrens;Ja;1
+82;valid - buiten meetbereik, resultaat mogelijk over- of onderschat;Ja;1
+83;valid - buiten meetbereik, resultaat mogelijk overschat;Ja;1
+84;valid - terugvinding interne standaard voldoet niet aan minimumeis;Ja;1
+85;valid - terugvinding interne standaard voldoet niet aan maximumeis;Ja;1
+86;valid - indicatief resultaat, mogelijk ge�nterfereerd;Ja;1
+87;valid - indicatief resultaat, terugvinding controlestaal voldoet niet aan criterium;Ja;1
+88;valid - buiten meetbereik, resultaat mogelijk onderschat;Ja;1
+90;valid - geschat;Ja;1
+91;valid - hoge variatiecoefficient op duplometing;Ja;1
+92;valid - T-PFAS gelijkgesteld aan L-PFAS omdat T<L;Ja;1
