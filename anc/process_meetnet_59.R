@@ -40,14 +40,14 @@ process_meetnet_59 <- function(df) {
     ungroup() %>%
     mutate(Commentaar = combined_comment,
           CommentaarAnt = combined_comment_ant,
-          Validatiecode = combined_validatiecode) %>%
-    select(-combined_comment, -combined_comment_ant, -combined_validatiecode)  
+          Labovalidatie = combined_validatiecode) %>%
+    select(-combined_comment, -combined_comment_ant, -combined_validatiecode, -Validatiecode)  
 
     x <- x %>%
       pivot_wider(names_from = Parameter, values_from = Resultaat)
 
     x <- x %>%
-      relocate("Validatiecode", .after = last_col()) %>%
+      relocate("Labovalidatie", .after = last_col()) %>%
       relocate("Commentaar", .after = last_col()) %>%
       relocate("CommentaarAnt", .after = last_col())
 

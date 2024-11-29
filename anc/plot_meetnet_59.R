@@ -3,7 +3,8 @@ plot_meetnet_59 <- function(df, meetpost) {
 pdf <- process_meetnet_59(df)[[meetpost]]
 
 parameter_lijst <- colnames(pdf)
-parameter_lijst <- setdiff(parameter_lijst, c("Monsternummer", "Begindatum", "Einddatum", "Validatiecode", "Commentaar", "CommentaarAnt"))
+parameter_lijst <- setdiff(parameter_lijst, 
+c("Monsternummer", "Begindatum", "Einddatum", "Labovalidatie", "Commentaar", "CommentaarAnt"))
 
 longdf <- pdf %>%
       pivot_longer(cols = parameter_lijst, names_to = "Parameter", values_to = "Resultaat") %>%
@@ -67,11 +68,12 @@ M <- pdf %>%
     mutate(across(everything(), as.numeric)) %>%
     cor(use = "complete.obs")
 
-greys_palette <- colorRampPalette(c("black", "grey"))(n = length(unique(df$MeetpostOpstelling)))
+CORplot <- ggcorrplot(M, hc.order = TRUE, type = "lower", tl.cex = 8) +
+    ggtitle("Correlatie tussen de parameters voor de gekozen meetpost") +
+    theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
 
-CORplot <- corrplot(M, type = 'lower', order = 'hclust', tl.col = 'black',
-             cl.ratio = 0.2, tl.srt = 45, title = "Correlatie tussen de parameters voor de gekozen meetpost",
-             mar = c(0,0,2,0))
+
+greys_palette <- colorRampPalette(c("black", "grey"))(n = length(unique(df$MeetpostOpstelling)))
 
 TSPlot2 <- plot_ly(df2 %>% filter(MeetpostOpstelling != meetpost), 
                     x = ~date,

@@ -1,0 +1,44 @@
+h4 {
+  color: #1a708d; /* Change text color */
+  font-size: 24px; /* Change font size */
+  font-weight: bold; /* Make text bold */
+  text-align: center; /* Center align text */
+  margin-top: 20px; /* Add top margin */
+  margin-bottom: 20px; /* Add bottom margin */
+}
+
+.navbar-header {
+  display: flex;
+  align-items: center; 
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-brand img {
+  height: 50px;
+  margin-right: 10px; 
+}
+
+.navbar-brand span {
+  font-size: 24px;
+  font-weight: bold;
+  vertical-align: middle;
+  color: #1a708d;
+}
+
+.navbar-default {
+    background-color: #ffffff !important;
+}
+
+.navbar-nav > .active > a {
+  background-color: #033b61 !important; 
+  color: white !important;
+}
+
+.navbar-nav > li > a:hover {
+  background-color: #2980b9 !important;
+  color: white !important;
+}

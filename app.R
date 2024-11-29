@@ -1,7 +1,8 @@
 pacman::p_load(shiny, readxl, dplyr, tidyr, ggplot2, lubridate, miceadds,
-               DT, plotly, viridis, corrplot)
+               DT, plotly, viridis, ggcorrplot, jsonlite, xlsx)
 source.all("anc/")
 addResourcePath("www", "www")
+addResourcePath("lib", "lib")
 
 
 ui <- navbarPage(
@@ -17,7 +18,6 @@ ui <- navbarPage(
 
   tabPanel("Data Invoer", 
            fluidPage(
-#            h4("Inladen ruwe data"),
             fluidRow(
               column(6, 
                      selectInput("meetnet", "Selecteer Meetnet:",
@@ -44,22 +44,41 @@ ui <- navbarPage(
   tabPanel("Plots", 
     fluidPage(
       h4(textOutput("plot_title")),
-      plotlyOutput("plot1"),
-      plotlyOutput("plot2"),
-      plotOutput("plot3", height = "600px"),
-      plotlyOutput("plot4"),
-      plotlyOutput("plot5")
+      uiOutput("plots")
     )
   ),
   tabPanel("Validatie", 
     fluidPage(
       h4(textOutput("validation_title")),
+            tags$div(
+        style = "text-align: justify; font-size: 16px;",
+        HTML("
+          <p>
+        <b>Selecteer hieronder</b> de waarden voor deze meetpost die u wenst een <b>andere validatiecode</b> dan &quot;<i>10:valid</i>&quot; te geven. <br> 
+         In de volgende tabel kan u de <b>validatiecode</b> en <b>commentaar</b> aanpassen. Dit doet u door op de bijhorende cel in de tabel te klikken. <br>
+         Hierna gaat u <b>terug naar het tabblad &quot;Data Invoer&quot;</b> om de volgende meetpost te selecteren. <br>
+         Indien alle meetposten zijn behandeld, gaat u <b>verder naar &quot;Data Export&quot;</b>. <br> 
+          </p>
+        ")
+      ),
       DTOutput("dtable"),
       DTOutput("selected_table")
     )
   ),
   tabPanel("Data Export", 
     fluidPage(
+      tags$div(
+        style = "text-align: justify; font-size: 16px;",
+        HTML("
+          <p>
+        Druk op de knop hieronder om een <b>excel file te downloaden met de gevalideerde data</b>. <br>
+      Deze data is uw oorspronkelijk bestand, herwerkt naar een standaardformaat en met de 
+        validatiecodes en commentaren die u heeft ingegeven. <br>
+        Alle metingen zonder expliciete validatiecode krijgen de code &quot;<i>10:valid</i>&quot; mee. <br>
+          </p>
+        ")
+        ),
+      downloadButton("downloadData", "Download de Gevalideerde Data")
     )
   ),
   tabPanel("Info",
@@ -83,6 +102,8 @@ ui <- navbarPage(
       )
     )
 )
+
+
 
 
 server <- function(input, output, session) {
@@ -121,29 +142,28 @@ server <- function(input, output, session) {
     datatable(processed_data()[[input$meetpostopstelling]])
   })
 
-  output$plot1 <- renderPlotly({
-    plot1 <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(),input$meetpostopstelling)
-    plot1[[1]]
+  output$plots <- renderUI({
+    req(input$meetpostopstelling)
+    plot_list <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+    plot_output_list <- lapply(seq_along(plot_list), function(i) {
+      plotname <- paste("plot", i, sep="")
+      plotlyOutput(plotname, height = "500px")
+    })
+    do.call(tagList, plot_output_list)
   })
 
-  output$plot2 <- renderPlotly({
-    plot2 <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(),input$meetpostopstelling)
-    plot2[[2]] 
-  })
-
-  output$plot3 <- renderPlot({
-    plot3 <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(),input$meetpostopstelling)
-    plot3[[3]] 
-  })
-
-  output$plot4 <- renderPlotly({
-    plot4 <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(),input$meetpostopstelling)
-    plot4[[4]] 
-  })
-
-  output$plot5 <- renderPlotly({
-    plot5 <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(),input$meetpostopstelling)
-    plot5[[5]] 
+  observe({
+    req(input$meetpostopstelling)
+    plot_list <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+    for (i in seq_along(plot_list)) {
+      local({
+        my_i <- i
+        plotname <- paste("plot", my_i, sep="")
+        output[[plotname]] <- renderPlotly({
+          plot_list[[my_i]]
+        })
+      })
+    }
   })
 
  output$validation_title <- renderText({
@@ -156,7 +176,7 @@ server <- function(input, output, session) {
   })
 
 
- selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = character(), Validatiecode = character()))
+ selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = character(), Validatiecode = character(), Validatiecommentaar = character()))
 
  output$dtable <- renderDataTable({
     req(input$meetpostopstelling)
@@ -185,7 +205,7 @@ server <- function(input, output, session) {
     current_selected <- selected_df()
     
     if (is_checked) {
-      updated_selected <- rbind(current_selected, data.frame(Monsternummer = row_name, Parameter = col_name, Waarde = cell_value, Validatiecode = NA))
+      updated_selected <- rbind(current_selected, data.frame(Monsternummer = row_name, Parameter = col_name, Waarde = cell_value, Validatiecode = NA, Validatiecommentaar = ""))
       selected_df(updated_selected)
     } else {
       updated_selected <- current_selected[!(current_selected$Monsternummer == row_name & current_selected$Parameter == col_name), ]
@@ -193,14 +213,64 @@ server <- function(input, output, session) {
     }
   })
 
-  
-  # Render the updated long format table of selected entries
+  validatiecodes <- reactive({
+    valcodes <- read.csv("lib/validatiecodesSAM.csv", sep = ";")
+    paste0(valcodes$Code, ": ", valcodes$Omschrijving)
+  })
+
+
   output$selected_table <- renderDT({
     datatable(selected_df(),
-    escape = FALSE, selection = 'none',
-    options = list(dom = 't', paging = FALSE, ordering = FALSE)
+              escape = FALSE, selection = 'none',
+              options = list(dom = 't', paging = FALSE, ordering = FALSE),
+              editable = list(target = 'cell', disable = list(columns = c(0, 1, 2, 3))),
+              callback = JS(
+                "table.on('click.dt', 'tbody td:nth-child(5)', function() {",
+                "  var cell = table.cell(this);",
+                "  var cellData = cell.data();",
+                "  var select = $('<select></select>');",
+                "  var options = ", toJSON(validatiecodes()), ";",
+                "  options.forEach(function(option) {",
+                "    var optionElement = $('<option></option>').text(option).val(option);",
+                "    if (option === cellData) {",
+                "      optionElement.attr('selected', 'selected');",
+                "    }",
+                "    select.append(optionElement);",
+                "  });",
+                "  $(this).empty().append(select);",
+                "  select.focus();",
+                "  select.on('change', function() {",
+                "    cell.data(select.val()).draw();",
+                "    Shiny.setInputValue('selected_table_cell_edit', {row: cell.index().row + 1, col: cell.index().column, value: select.val()}, {priority: 'event'});",
+                "  });",
+                "});"
+              )
     )
   })
+
+  observeEvent(input$selected_table_cell_edit, {
+    info <- input$selected_table_cell_edit
+    i <- info$row
+    j <- info$col
+    v <- info$value
+    current_selected <- selected_df()
+    current_selected[i, j] <- v
+    selected_df(current_selected)
+  })
+
+  observe({
+    validatiecodes()
+  })
+
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("validated_data_", input$meetnet,"_", Sys.Date(), ".xlsx", sep = "")
+    },
+    content = function(file) {
+      df <- get(paste0("export_meetnet_", input$meetnet))(uploaded_data(), selected_df())
+      write.xlsx(df, file)
+    }
+  )
 
 }
 
