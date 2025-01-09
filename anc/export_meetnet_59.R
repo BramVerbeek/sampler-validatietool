@@ -1,6 +1,9 @@
 export_meetnet_59 <- function(df, valdf) {
 
-saroad59 <- read_excel("C:/Users/b.verbeek/Documents/sampler-validatietool/lib/SAROAD-59.xlsx")
+library(readxl)
+
+library(here)
+saroad59 <- read_excel("lib/SAROAD-59.xlsx")
 get_saroad_code <- function(name, saroad59) {
   result <- saroad59 %>%
     filter(naam == name) %>%

@@ -1,8 +1,9 @@
 pacman::p_load(shiny, readxl, dplyr, tidyr, ggplot2, lubridate, miceadds,
-               DT, plotly, viridis, ggcorrplot, jsonlite, xlsx)
+               DT, plotly, viridis, ggcorrplot, jsonlite, xlsx, rhandsontable)
 source.all("anc/")
 addResourcePath("www", "www")
 addResourcePath("lib", "lib")
+
 
 
 ui <- navbarPage(
@@ -12,10 +13,19 @@ ui <- navbarPage(
     span("Validatietool Samplermetingen")
   ),
   header = tags$head(
-    tags$link(rel = "stylesheet", type = "text/css", href = "www/styles.css")
+    tags$link(rel = "stylesheet", type = "text/css", href = "www/styles.css"),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('update_checkbox', function(message) {
+        var row = message.row;
+        var col = message.col;
+        var value = message.value;
+        
+        // Update the checkbox using the provided row and column
+        var checkboxId = '#' + col + '_' + row;
+        $(checkboxId).prop('checked', value);
+      });
+    "))
   ),
-
-
   tabPanel("Data Invoer", 
            fluidPage(
             fluidRow(
@@ -41,6 +51,12 @@ ui <- navbarPage(
               "))
            )
   ),
+  tabPanel("Statistieken", 
+    fluidPage(
+      h4(textOutput("stats_title")),
+      uiOutput("stats")
+    )
+  ),
   tabPanel("Plots", 
     fluidPage(
       h4(textOutput("plot_title")),
@@ -55,14 +71,22 @@ ui <- navbarPage(
         HTML("
           <p>
         <b>Selecteer hieronder</b> de waarden voor deze meetpost die u wenst een <b>andere validatiecode</b> dan &quot;<i>10:valid</i>&quot; te geven. <br> 
-         In de volgende tabel kan u de <b>validatiecode</b> en <b>commentaar</b> aanpassen. Dit doet u door op de bijhorende cel in de tabel te klikken. <br>
-         Hierna gaat u <b>terug naar het tabblad &quot;Data Invoer&quot;</b> om de volgende meetpost te selecteren. <br>
-         Indien alle meetposten zijn behandeld, gaat u <b>verder naar &quot;Data Export&quot;</b>. <br> 
           </p>
         ")
       ),
       DTOutput("dtable"),
-      DTOutput("selected_table")
+                  tags$div(
+        style = "text-align: justify; font-size: 16px;",
+        HTML("
+          <p>
+         In de volgende tabel kan u de <b>validatiecode</b> en <b>commentaar</b> aanpassen. Dit doet u door op de bijhorende cel in de tabel te klikken. <br>
+         Hierna gaat u <b>terug naar het tabblad &quot;Data Invoer&quot;</b> om de volgende meetpost te selecteren. <br>
+         Indien alle meetposten zijn behandeld, gaat u <b>verder naar &quot;Data Export&quot;</b>. <br>   
+          </p>
+        ")
+      ),
+      rHandsontableOutput("selected_table"),
+      tags$div(style = "height: 20px;")  # Add vertical space
     )
   ),
   tabPanel("Data Export", 
@@ -108,17 +132,79 @@ ui <- navbarPage(
 
 server <- function(input, output, session) {
 
+###################################################################################################################
+# DATA IMPORT AND PROCESSING
+###################################################################################################################
+
   uploaded_data <- reactive({
     req(input$file)
     df <- read_excel(input$file$datapath)
     return(df)  
   })
 
-  processed_data <- reactive({
-    df <- uploaded_data()  
+processed_data <- reactive({
+    req(uploaded_data(), input$meetnet)
+    df <- uploaded_data()
     processed_df <- get(paste0("process_meetnet_", input$meetnet))(df)
+    selected <- selected_df()
+    
+    if (nrow(selected) > 0 && any(!is.na(selected$Validatiecode) & selected$Validatiecode != "")) {
+        for (i in seq_len(nrow(selected))) {
+            row <- selected[i, ]
+            if (!is.na(row$Validatiecode) && as.numeric(row$Validatiecode) > 100) {
+                processed_df[[as.character(row$Monsternummer)]][[row$Parameter]] <- NA
+            }
+        }
+    }
     return(processed_df)
+})
+
+  observe({
+    processed_data()
+    output$data_summary <- renderDataTable({
+        req(input$meetpostopstelling)
+        datatable(processed_data()[[input$meetpostopstelling]])
+    })
+    output$plots <- renderUI({
+        req(input$meetpostopstelling)
+        plot_list <- get(paste0("plot_meetnet_", input$meetnet))(processed_data(), input$meetpostopstelling)
+        plot_output_list <- lapply(seq_along(plot_list), function(i) {
+            plotname <- paste("plot", i, sep="")
+            plotlyOutput(plotname, height = "500px")
+        })
+        do.call(tagList, plot_output_list)
+    })
+    output$stats <- renderUI({
+        req(input$meetpostopstelling)
+        stat_list <- get(paste0("stat_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+        stat_output_list <- lapply(seq_along(stat_list), function(i) {
+            statname <- paste("stat", i, sep="")
+            dataTableOutput(statname)
+        })
+        do.call(tagList, stat_output_list)
+    })
   })
+
+###################################################################################################################
+# INTERACTIVE TITLES
+###################################################################################################################
+
+  output$validation_title <- renderText({
+    req(input$meetpostopstelling)
+    paste("Validatie voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+  })
+  output$plot_title <- renderText({
+    req(input$meetpostopstelling)
+    paste("Plots voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+  })
+  output$stats_title <- renderText({
+    req(input$meetpostopstelling)
+    paste("Statistieken voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+  })
+
+###################################################################################################################
+# UI ELEMENTS
+###################################################################################################################
 
   output$meetpostopstelling_ui <- renderUI({
     tagList(
@@ -137,14 +223,22 @@ server <- function(input, output, session) {
     )
   })
 
+###################################################################################################################
+# DATA TABLES
+###################################################################################################################
+
   output$data_summary <- renderDataTable({
     req(input$meetpostopstelling)
     datatable(processed_data()[[input$meetpostopstelling]])
   })
 
+###################################################################################################################
+# PLOTS
+###################################################################################################################
+
   output$plots <- renderUI({
     req(input$meetpostopstelling)
-    plot_list <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+    plot_list <- get(paste0("plot_meetnet_", input$meetnet))(processed_data(), input$meetpostopstelling)
     plot_output_list <- lapply(seq_along(plot_list), function(i) {
       plotname <- paste("plot", i, sep="")
       plotlyOutput(plotname, height = "500px")
@@ -154,7 +248,7 @@ server <- function(input, output, session) {
 
   observe({
     req(input$meetpostopstelling)
-    plot_list <- get(paste0("plot_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+    plot_list <- get(paste0("plot_meetnet_", input$meetnet))(processed_data(), input$meetpostopstelling)
     for (i in seq_along(plot_list)) {
       local({
         my_i <- i
@@ -166,34 +260,100 @@ server <- function(input, output, session) {
     }
   })
 
- output$validation_title <- renderText({
+###################################################################################################################
+# STATS
+###################################################################################################################
+
+  output$stats <- renderUI({
     req(input$meetpostopstelling)
-    paste("Validatie voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
-  })
-  output$plot_title <- renderText({
-    req(input$meetpostopstelling)
-    paste("Plots voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+    stat_list <- get(paste0("stat_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+    stat_output_list <- lapply(seq_along(stat_list), function(i) {
+      statname <- paste("stat", i, sep="")
+      dataTableOutput(statname)
+    })
+    do.call(tagList, stat_output_list)
   })
 
+  observe({
+    req(input$meetpostopstelling)
+    stat_list <- get(paste0("stat_meetnet_", input$meetnet))(uploaded_data(), input$meetpostopstelling)
+    for (i in seq_along(stat_list)) {
+      local({
+        my_i <- i
+        statname <- paste("stat", my_i, sep="")
+        output[[statname]] <- renderDT({
+          stat_list[[my_i]]
+        })
+      })
+    }
+  })
 
- selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = character(), Validatiecode = character(), Validatiecommentaar = character()))
+###################################################################################################################
+# VALIDATION SELECTION
+###################################################################################################################
+
+ selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = character(), 
+                                       Validatiecode = numeric(), Validatiecommentaar = character()))
 
  output$dtable <- renderDataTable({
     req(input$meetpostopstelling)
+    df <- get(paste0("process_meetnet_", input$meetnet))(uploaded_data())[[input$meetpostopstelling]]
+    unique_parameters <- as.vector(unique(uploaded_data()$Parameter))
+    df_with_buttons <- df
+    df_with_buttons$Monsternummer <- paste0( df$Monsternummer,
+      '<br><button id="select_all_', df$Monsternummer, '" 
+      onclick="Shiny.setInputValue(\'select_all_click\', {row: \'', df$Monsternummer, '\'}, {priority: \'event\'})">Select All</button>',
+      '<br><button id="deselect_all_', df$Monsternummer, '" 
+      onclick="Shiny.setInputValue(\'deselect_all_click\', {row: \'', df$Monsternummer, '\'}, {priority: \'event\'})">Deselect All</button>'
+    )
+    for (col in unique_parameters) { 
+        df_with_buttons[[col]] <- paste0(
+            df[[col]], 
+            '<br><input type="checkbox" id="', col, '_', df$Monsternummer, '" 
+            onchange="Shiny.setInputValue(\'checkbox_click\', {row: \'', df$Monsternummer, '\', col: \'', col, '\', value: this.checked}, {priority: \'event\'})">'
+        )
+    }
+    datatable(df_with_buttons, escape = FALSE, selection = 'none', options = list(pageLength = 5))
+})
+
+observeEvent(input$select_all_click, {
+    row_name <- input$select_all_click$row  
+
     df <- processed_data()[[input$meetpostopstelling]]
     unique_parameters <- as.vector(unique(uploaded_data()$Parameter))
-    df_with_checkboxes <- df
-      for (col in unique_parameters) { 
-        df_with_checkboxes[[col]] <- paste0(
-        df[[col]],
-        '<br><input type="checkbox" id="', col, '_', df$Monsternummer, '" 
-        onchange="Shiny.onInputChange(\'checkbox_click\', {row: \'', df$Monsternummer, '\', col: \'', col, '\', value: this.checked})">'
-        )
-      }
-    datatable(df_with_checkboxes, escape = FALSE, selection = 'none', options = list(pageLength = 5))
-  })
 
-  observeEvent(input$checkbox_click, {
+    for (col_name in unique_parameters) {
+        session$sendCustomMessage(type = "update_checkbox", message = list(row = row_name, col = col_name, value = TRUE))
+    }
+
+    current_selected <- selected_df()
+    for (col_name in unique_parameters) {
+        cell_value <- as.double(df[df$Monsternummer == row_name, col_name])
+        updated_selected <- rbind(current_selected, data.frame(Monsternummer = row_name, Parameter = col_name, Waarde = cell_value, Validatiecode = NA, Validatiecommentaar = ""))
+        current_selected <- updated_selected
+    }
+    selected_df(current_selected)
+})
+
+observeEvent(input$deselect_all_click, {
+    row_name <- input$deselect_all_click$row  
+
+    df <- processed_data()[[input$meetpostopstelling]]
+    unique_parameters <- as.vector(unique(uploaded_data()$Parameter))
+
+    for (col_name in unique_parameters) {
+        session$sendCustomMessage(type = "update_checkbox", message = list(row = row_name, col = col_name, value = FALSE))
+    }
+
+    current_selected <- selected_df()
+    for (col_name in unique_parameters) {
+        updated_selected <- current_selected[!(current_selected$Monsternummer == row_name & current_selected$Parameter == col_name), ]
+        current_selected <- updated_selected
+    }
+    selected_df(current_selected)
+})
+
+observeEvent(input$checkbox_click, {
     row_name <- input$checkbox_click$row  
     col_name <- input$checkbox_click$col  
     is_checked <- input$checkbox_click$value 
@@ -205,62 +365,43 @@ server <- function(input, output, session) {
     current_selected <- selected_df()
     
     if (is_checked) {
-      updated_selected <- rbind(current_selected, data.frame(Monsternummer = row_name, Parameter = col_name, Waarde = cell_value, Validatiecode = NA, Validatiecommentaar = ""))
-      selected_df(updated_selected)
+        updated_selected <- rbind(current_selected, data.frame(Monsternummer = row_name, Parameter = col_name, Waarde = cell_value, Validatiecode = NA, Validatiecommentaar = ""))
+        selected_df(updated_selected)
     } else {
-      updated_selected <- current_selected[!(current_selected$Monsternummer == row_name & current_selected$Parameter == col_name), ]
-      selected_df(updated_selected)
+        updated_selected <- current_selected[!(current_selected$Monsternummer == row_name & current_selected$Parameter == col_name), ]
+        selected_df(updated_selected)
     }
-  })
+})
 
   validatiecodes <- reactive({
     valcodes <- read.csv("lib/validatiecodesSAM.csv", sep = ";")
     paste0(valcodes$Code, ": ", valcodes$Omschrijving)
   })
 
-
-  output$selected_table <- renderDT({
-    datatable(selected_df(),
-              escape = FALSE, selection = 'none',
-              options = list(dom = 't', paging = FALSE, ordering = FALSE),
-              editable = list(target = 'cell', disable = list(columns = c(0, 1, 2, 3))),
-              callback = JS(
-                "table.on('click.dt', 'tbody td:nth-child(5)', function() {",
-                "  var cell = table.cell(this);",
-                "  var cellData = cell.data();",
-                "  var select = $('<select></select>');",
-                "  var options = ", toJSON(validatiecodes()), ";",
-                "  options.forEach(function(option) {",
-                "    var optionElement = $('<option></option>').text(option).val(option);",
-                "    if (option === cellData) {",
-                "      optionElement.attr('selected', 'selected');",
-                "    }",
-                "    select.append(optionElement);",
-                "  });",
-                "  $(this).empty().append(select);",
-                "  select.focus();",
-                "  select.on('change', function() {",
-                "    cell.data(select.val()).draw();",
-                "    Shiny.setInputValue('selected_table_cell_edit', {row: cell.index().row + 1, col: cell.index().column, value: select.val()}, {priority: 'event'});",
-                "  });",
-                "});"
-              )
-    )
-  })
-
-  observeEvent(input$selected_table_cell_edit, {
-    info <- input$selected_table_cell_edit
-    i <- info$row
-    j <- info$col
-    v <- info$value
-    current_selected <- selected_df()
-    current_selected[i, j] <- v
-    selected_df(current_selected)
+  output$selected_table <- renderRHandsontable({
+    rhandsontable(selected_df(), rowHeaders = NULL,
+     colHeaders = c("Monsternummer", "Parameter", "Waarde", "Validatiecode", "Validatiecommentaar"),
+     overflow = 'visible') %>% 
+        hot_cols(columnSorting = TRUE) %>% 
+        hot_col("Validatiecode", type = "numeric") %>% 
+        hot_col("Validatiecommentaar", type = "text") %>% 
+        hot_table(stretchH = "all", colHeaders = TRUE)
   })
 
   observe({
     validatiecodes()
   })
+
+observeEvent(input$selected_table, {
+    updated_df <- hot_to_r(input$selected_table)
+
+    selected_df(updated_df)   
+    processed_data() 
+})
+
+###################################################################################################################
+# DOWNLOADING DATA
+###################################################################################################################
 
   output$downloadData <- downloadHandler(
     filename = function() {
