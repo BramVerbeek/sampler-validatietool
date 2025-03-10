@@ -99,7 +99,7 @@ TSPlot2 <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                     marker = list(size = 5),
                     hoverinfo = "x+y+text",              
                     text = ~paste("Meetpost:", MeetpostOpstelling)) %>% 
-                    layout(title = list(text = "",
+                    layout(title = list(text = "<b>Tijdreeks van de metingen per parameter</b>",
                                         x = 0,                                     
                                         xanchor = "left",                            
                                         font = list(                         
@@ -127,7 +127,7 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                             jitter = 0.5, 
                             pointpos = 0,
                             hoverinfo = "all") %>%
-                    layout(title = list(text = "",
+                    layout(title = list(text = "<b>Boxplot van de metingen per parameter</b>",
                                         x = 0,                                     
                                         xanchor = "left",                            
                                         font = list(                         
@@ -146,3 +146,4 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
 
 return(list(TSPlot, PBoxplot, CORplot, TSPlot2, BBoxplot))
 }
+

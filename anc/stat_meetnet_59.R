@@ -33,5 +33,5 @@ stat_meetnet_59 <- function(bigdf, df, meetpost) {
     separate(Parameter, into = c("Parameter", "Statistiek"), sep = "_") %>%
     pivot_wider(names_from = Parameter, values_from = Value)
   
-  return(list(stats_table, days_table))
+  return(list(days_table, stats_table))
 }
