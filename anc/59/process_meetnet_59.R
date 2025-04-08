@@ -47,7 +47,7 @@ process_meetnet_59 <- function(df) {
     select(-combined_comment, -combined_comment_ant, -combined_validatiecode, -Validatiecode)  
 
     x <- x %>% 
-      pivot_wider(names_from = Parameter, values_from = Resultaat)
+      pivot_wider(names_from = Parameter, values_from = Resultaat) 
 
     x <- x %>%
       relocate("Labovalidatie", .after = last_col()) %>%

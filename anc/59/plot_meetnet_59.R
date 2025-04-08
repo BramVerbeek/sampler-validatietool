@@ -24,17 +24,17 @@ TSPlot <- plot_ly(longdf,
                 marker = list(size = 5),
                 hoverinfo = "x+y+text",              
                 text = ~paste("Parameter:", Parameter)) %>%
-        layout(title = list(text = "",
+        layout(title = list(text = "<b>Tijdsreeks van de metingen voor elke parameter</b>",
                             x = 0,                                     
                             xanchor = "left",                            
                             font = list(                         
                                 size = 16                      
                             )
         ),
-            xaxis = list(title = "Einddatum", type = "date", autorange = TRUE),  
+            xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
             yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
             margin = list(l = 40, r = 40, t = 40, b = 40),
-            showlegend = FALSE)
+            showlegend = TRUE)
 
 
 PBoxplot <- plot_ly(longdf, 
@@ -48,7 +48,7 @@ PBoxplot <- plot_ly(longdf,
                 jitter = 0.5, 
                 pointpos = 0,
                 hoverinfo = "all") %>%
-        layout(title = list(text = "",
+        layout(title = list(text = "<b>Boxplot van de metingen voor elke parameter</b>",
                             x = 0,                                     
                             xanchor = "left",                            
                             font = list(                         
@@ -106,10 +106,10 @@ TSPlot2 <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                                             size = 16                      
                                         )
                     ),
-                        xaxis = list(title = "Einddatum", type = "date", autorange = TRUE),  
+                        xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
                         yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
                         margin = list(l = 40, r = 40, t = 40, b = 40),
-                        showlegend = FALSE) %>%  
+                        showlegend = TRUE) %>%  
                     add_trace(data = bigdf2 %>% filter(MeetpostOpstelling == meetpost),
                               marker = list(color = '#F25757'),
                               line = list(color = '#F25757'))

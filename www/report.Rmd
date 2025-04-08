@@ -1,0 +1,29 @@
+---
+title: "Validatierapport"
+output: html_document
+params:
+  meetnet: NA
+  start_date: NA
+  end_date: NA
+  valcodes: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(pacman)
+p_load(tidyverse, dygraphs, here, readxl,
+       RColorBrewer, corrplot, viridis,
+       plot.matrix, gridExtra, kableExtra)
+```
+
+# Meetnet `r params$meetnet` van `r params$start_date` tot `r params$end_date`
+
+## Validatiecodes
+
+```{r}
+knitr::kable(params$valcodes, format = "html") %>% kable_classic()
+```
+
+## Valide Statistiek
+
+## Valide Plots

@@ -1,6 +1,11 @@
-pacman::p_load(shiny, shinyWidgets, readxl, dplyr, tidyr, ggplot2, lubridate, miceadds,
+pacman::p_load(shiny, shinyWidgets, readxl, dplyr, tidyr, ggplot2, lubridate,
                DT, plotly, viridis, ggcorrplot, jsonlite, xlsx, rhandsontable)
-source.all("anc/")
+
+anc.files = list.files("anc/", 
+                          pattern="*.R$", full.names=TRUE, 
+                          recursive=TRUE)
+sapply(anc.files,source,.GlobalEnv)
+
 addResourcePath("www", "www")
 addResourcePath("lib", "lib")
 
@@ -8,24 +13,33 @@ ui <- navbarPage(
   title = div(
     class = "navbar-brand",
     tags$img(src = "www/logo.png", height = "50px"),  
-    span("Validatietool Semi-automatische Metingen")
+    span("Validatietool SAM")
   ),
   header = tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "www/styles.css")
   ),
-  tabPanel("Data Invoer", 
+  tabPanel("Import", 
     fluidPage(
       fluidRow(
         column(4, 
-          selectInput("meetnet", "Selecteer Meetnet:", choices = c("59"))
+          selectInput("meetnet", "Selecteer Meetnet:", choices = c("57","59"))
         ),
         column(4, 
           fileInput("file", "Upload CSV File", accept = c(".csv"))
         ),
         column(4,
           uiOutput("meetpostopstelling_ui"))
-      ),
-      tags$hr(style = "border-top: 5px solid #E7E5E5;"),
+      )
+    )
+  ),
+    tabPanel("Verwerking", 
+    fluidPage(
+      h4(textOutput("process_title")),
+      uiOutput("process")
+    )
+  ),
+  tabPanel("Data", 
+    fluidPage(
       h4(textOutput("data_title")),
       dataTableOutput("data_summary"),
       tags$style(HTML("
@@ -63,13 +77,13 @@ ui <- navbarPage(
             downloadButton("save_button", "Huidige Validatie Downloaden")))
       ),
       tags$hr(style = "border-top: 5px solid #E7E5E5;"),
-      DTOutput("dtable"),
+      tags$div(style = "height:500px; overflow-y: scroll; overflow-x: scroll;", DT::dataTableOutput("dtable")),
       tags$hr(style = "border-top: 5px solid #E7E5E5;"),
       rHandsontableOutput("selected_table"),
       tags$div(style = "height: 20px;") 
     )
   ),
-  tabPanel("Data Export", 
+  tabPanel("Export", 
     fluidPage(
       fluidRow(
         column(3, selectInput("file_type", "Selecteer bestandstype:", choices = c("csv", "xlsx", "svpol"))),
@@ -77,7 +91,8 @@ ui <- navbarPage(
         column(3, dateInput("end_date", "Einddatum:", value = Sys.Date())),
         column(3, pickerInput("meetposten", "Selecteer Meetposten:", choices = NULL, multiple = TRUE))
       ),
-      downloadButton("downloadData", "Download")
+    downloadButton("downloadData", "Download Gevalideerde Data"),
+    downloadButton("downloadReport", "Download Rapport")
     )
   ),
   tabPanel("Info",
@@ -85,19 +100,16 @@ ui <- navbarPage(
       tags$div(
         style = "text-align: justify; font-size: 16px;",
         HTML("<p>
-          Deze <b><a href='https://shiny.posit.co/'>R Shiny app</a></b> werd ontwikkeld bij de dienst Lucht van de Vlaamse Milieumaatschappij 
-          om het valideren van de data komende van verscheidene semi-automatische meetnetten te vergemakkelijken. De applicatie is in continue aanbouw, zowel qua functionaliteiten als het toevoegen van nieuwe meetnetten.
+          Deze <b><a href='https://shiny.posit.co/'>R Shiny app</a></b> werd ontwikkeld binnen de kern Lucht van de Vlaamse Milieumaatschappij 
+          om het valideren van de data komende van verscheidene semi-automatische meetnetten te vergemakkelijken. <br>
+          De applicatie is in continue aanbouw, zowel qua functionaliteiten als het toevoegen van nieuwe meetnetten. <br>
           Voor de nieuwste versie, zie de 
           <b><a href='https://github.com/BramVerbeek/sampler-validatietool'>GitHub repository</a></b>.
           Bij vragen, mail naar 
           <b><a href='mailto:b.verbeek@vmm.be'>b.verbeek@vmm.be</a></b>. </p> "),
         tags$hr(style = "border-top: 5px solid #E7E5E5;"),
         HTML("<p>
-          Na het importeren van de data wordt de validatie per meetpost uitgevoerd. Hierna kan de data
-          geëxporteerd worden naar een csv, xlsx of svpol-bestand met een vast bepaalde formatting. <br>
-          <b>Opgelet:</b>  het opnieuw laden van de pagina zal al je voortgang wissen. Zorg ervoor dat je de data hebt geëxporteerd voordat je de pagina herlaadt. <br><br>
-          Hierna gaat u <b>terug naar het tabblad &quot;Data Invoer&quot;</b> om de volgende meetpost te selecteren. <br>
-          Indien alle meetposten zijn behandeld, gaat u <b>verder naar &quot;Data Export&quot;</b>. <br>   
+            <b>Gebruikshandleiding:</b>. <br>   
         </p>")
       )
     )
@@ -120,54 +132,45 @@ server <- function(input, output, session) {
 
   processed_data <- reactive({
     req(uploaded_data(), input$meetnet)
-
-    selected <- selected_df()
-
     df <- uploaded_data()
-    processed_df <- get(paste0("process_meetnet_", input$meetnet))(df)
-    selected <- selected_df()
-    
-    if (nrow(selected) > 0 && any(!is.na(selected$Validatiecode) & selected$Validatiecode != "")) {
-      for (i in seq_len(nrow(selected))) {
-        row <- selected[i, ]
-        if (!is.na(row$Validatiecode) && as.numeric(row$Validatiecode) > 100) {
-          trdf <- processed_df[[sub("-.*$", "", as.character(row$Monsternummer))]]
-          monster <- row$Monsternummer
-          param <- row$Parameter
-          row_index <- which(trdf[["Monsternummer"]] == monster)
-          trdf[[param]][row_index] <- NA
-        }
-      }
-    }
+    processed_df <- get(paste0("process_meetnet_", input$meetnet))(df) 
     return(processed_df)
   })
 
   output$validation_title <- renderText({
     req(input$meetpostopstelling)
-    paste("Validatie voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+    paste("Validatie voor Meetnet ", input$meetnet, " en Meetpost ", input$meetpostopstelling, ":", sep = "")
   })
   output$plot_title <- renderText({
     req(input$meetpostopstelling)
-    paste("Plots voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+    paste("Plots voor Meetnet ", input$meetnet, " en Meetpost ", input$meetpostopstelling, ":", sep = "")
   })
   output$stats_title <- renderText({
     req(input$meetpostopstelling)
-    paste("Statistieken voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+    paste("Statistieken voor Meetnet ", input$meetnet, " en Meetpost ", input$meetpostopstelling, ":", sep = "")
+  })
+  output$process_title <- renderText({
+    req(input$meetpostopstelling)
+    paste("Verwerking voor Meetnet ", input$meetnet, " en Meetpost ", input$meetpostopstelling, ":", sep = "")
   })
   output$data_title <- renderText({
     req(input$meetpostopstelling)
-    paste("Data voor Meetnet ", input$meetnet, " en Meetpostopstelling ", input$meetpostopstelling, ":", sep = "")
+    paste("Ruwe data voor Meetnet ", input$meetnet, " en Meetpost ", input$meetpostopstelling, ":", sep = "")
   })
 
   output$meetpostopstelling_ui <- renderUI({
     tagList(
-      selectInput("meetpostopstelling", "Selecteer de te valideren meetpost:", choices = names(processed_data()))
+      selectInput("meetpostopstelling", "Selecteer de te valideren meetpost:", choices = sort(names(processed_data())))
     )
   })
 
   output$data_summary <- renderDataTable({
     req(input$meetpostopstelling)
-    datatable(processed_data()[[input$meetpostopstelling]], options = list(pageLength = 50))
+    df <- processed_data()[[input$meetpostopstelling]]
+    df <- df[, c("Monsternummer", "Begindatum", "Einddatum", 
+           setdiff(sort(names(df)), c("Monsternummer", "Begindatum", "Einddatum", "Commentaar", "CommentaarAnt", "Labovalidatie")), 
+           "Labovalidatie" ,"Commentaar", "CommentaarAnt")]
+    datatable(df, options = list(paging = FALSE))
   })
 
   output$plots <- renderUI({
@@ -218,8 +221,8 @@ server <- function(input, output, session) {
     }
   })
 
-  selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = character(), 
-                                        Validatiecode = numeric(), Validatiecommentaar = character()))
+  selected_df <- reactiveVal(data.frame(Monsternummer = character(), Parameter = character(), Waarde = double(), 
+                                        Validatiecode = integer(), Validatiecommentaar = character()))
 
   output$dtable <- renderDataTable({
     req(input$meetpostopstelling)
@@ -236,7 +239,7 @@ server <- function(input, output, session) {
     for (col in unique_parameters) { 
       df_with_buttons[[col]] <- mapply(function(value, row) {
         if (any(current_selected$Monsternummer == row & current_selected$Parameter == col)) {
-          paste0('<span style="color:#F25757; font-weight:bold;">', value, '</span>')
+          paste0('<span style="color:#1a708d; font-weight:900;">', value, '</span>')
         } else {
           value
         }
@@ -246,10 +249,10 @@ server <- function(input, output, session) {
         '<br><button id="select_', col, '_', df$Monsternummer, '" 
         onclick="Shiny.setInputValue(\'button_click\', {row: \'', df$Monsternummer, '\', col: \'', col, '\'}, {priority: \'event\'})">Select</button>',
         '<br><button id="deselect_', col, '_', df$Monsternummer, '" 
-        onclick="Shiny.setInputValue(\'button_deselect_click\', {row: \'', df$Monsternummer, '\'}, {priority: \'event\'})">Deselect</button>'
+        onclick="Shiny.setInputValue(\'button_deselect_click\', {row: \'', df$Monsternummer, '\', col: \'', col, '\'}, {priority: \'event\'})">Deselect</button>'
       )
     }
-    datatable(df_with_buttons, escape = FALSE, selection = 'none', options = list(pageLength = 5))
+    datatable(df_with_buttons, escape = FALSE, selection = 'none', options = list(paging = FALSE))
   })
 
   observeEvent(input$select_all_click, {
@@ -308,11 +311,6 @@ server <- function(input, output, session) {
     selected_df(updated_selected)
   })
 
-  validatiecodes <- reactive({
-    valcodes <- read.csv("lib/validatiecodesSAM.csv", sep = ";")
-    paste0(valcodes$Code, ": ", valcodes$Omschrijving)
-  })
-
   output$selected_table <- renderRHandsontable({
     rhandsontable(selected_df(), rowHeaders = NULL,
       colHeaders = c("Monsternummer", "Parameter", "Waarde", "Validatiecode", "Validatiecommentaar"),
@@ -320,17 +318,15 @@ server <- function(input, output, session) {
       hot_cols(columnSorting = TRUE) %>% 
       hot_col("Validatiecode", type = "numeric") %>% 
       hot_col("Validatiecommentaar", type = "text") %>% 
-      hot_table(stretchH = "all", colHeaders = TRUE)
+      hot_table(stretchH = "all", colHeaders = TRUE, contextMenu = FALSE)
   })
 
-  observe({
-    validatiecodes()
-  })
-
-  observeEvent(input$selected_table, {
-    updated_df <- hot_to_r(input$selected_table)
-    selected_df(updated_df)   
-    processed_data() 
+  observeEvent(input$`val-file`, {
+    req(input$`val-file`)
+    val_data <- read.csv(input$`val-file`$datapath)
+    current_selected <- selected_df()
+    updated_selected <- bind_rows(current_selected, val_data) %>% distinct()
+    selected_df(updated_selected)
   })
 
   output$downloadData <- downloadHandler(
@@ -351,8 +347,33 @@ server <- function(input, output, session) {
     }
   )
 
+  output$downloadReport <- downloadHandler(
+    filename = function() {
+      paste("report_", input$meetnet, "_", Sys.Date(), ".html", sep = "")
+    },
+    content = function(file) {
+      tempReport <- file.path(tempdir(), "report.Rmd")
+      file.copy("www/report.Rmd", tempReport, overwrite = TRUE)
+      
+      params <- list(
+        meetnet = input$meetnet,
+        valcodes = selected_df(),
+        start_date = input$start_date,
+        end_date = input$end_date
+      )
+      
+      rmarkdown::render(tempReport, output_file = file,
+                        params = params,
+                        envir = new.env(parent = globalenv()))
+    }
+  )
+
   observe({
-    updateSelectInput(session, "meetposten", choices = names(processed_data()))
+    req(uploaded_data(), input$meetnet)
+    import_data <- uploaded_data()
+    unique_toestelopstelling <- sort(unique(import_data$MeetpostOpstelling))
+    updatePickerInput(session, "meetposten", choices = unique_toestelopstelling)
+    # TODO: ook datums hier laten updaten
   })
 
   observeEvent(input$save_button, {
@@ -362,12 +383,20 @@ server <- function(input, output, session) {
 
   output$save_button <- downloadHandler(
     filename = function() {
-      paste("tussentijdse_validatie_", Sys.Date(), ".csv", sep = "")
+      paste("tussentijdse_validatie_meetnet_", input$meetnet,"_", Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       write.csv(hot_to_r(input$selected_table), file, row.names = FALSE)
     }
   )
+
+
+  observeEvent(input$selected_table, {
+    req(input$selected_table)
+    updated_df <- hot_to_r(input$selected_table)  # Convert the updated table to a data frame
+    selected_df(updated_df)  # Update the reactive value
+  })
+
 
 }
 
