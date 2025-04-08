@@ -1,6 +1,8 @@
 process_meetnet_57 <- function(df) {
 
   df <- df %>% filter(!(Veldblanco %in% c("V")))
+  
+  df <- df %>% mutate(Commentaar = ifelse(Commentaar == " ", "", Commentaar))
 
   df_list <- split(df, df$MeetpostOpstelling)
   

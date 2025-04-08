@@ -2,6 +2,8 @@ process_meetnet_59 <- function(df) {
 
   df <- df %>% filter(!(Veldblanco %in% c("V")))
 
+  df <- df %>% mutate(Commentaar = ifelse(Commentaar == " ", "", Commentaar))
+
   df_list <- split(df, df$MeetpostOpstelling)
   
   df_list <- lapply(df_list, function(x) {
@@ -54,7 +56,7 @@ process_meetnet_59 <- function(df) {
       relocate("Commentaar", .after = last_col()) %>%
       relocate("CommentaarAnt", .after = last_col())
 
-    x <- x %>% arrange(Monsternummer)  # Sort by Monsternummer
+    x <- x %>% arrange(Monsternummer) 
 
     return(x)
     })

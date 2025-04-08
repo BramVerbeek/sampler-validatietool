@@ -10,6 +10,7 @@ addResourcePath("www", "www")
 addResourcePath("lib", "lib")
 
 ui <- navbarPage(
+  id = "tabs",  # Add an id to track the active tab
   title = div(
     class = "navbar-brand",
     tags$img(src = "www/logo.png", height = "50px"),  
@@ -18,7 +19,7 @@ ui <- navbarPage(
   header = tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "www/styles.css")
   ),
-  tabPanel("Import", 
+  tabPanel("Import", value = "Import",
     fluidPage(
       fluidRow(
         column(4, 
@@ -32,13 +33,13 @@ ui <- navbarPage(
       )
     )
   ),
-    tabPanel("Verwerking", 
+    tabPanel("Verwerking", value = "Verwerking",
     fluidPage(
       h4(textOutput("process_title")),
       uiOutput("process")
     )
   ),
-  tabPanel("Data", 
+  tabPanel("Data", value = "Data",
     fluidPage(
       h4(textOutput("data_title")),
       dataTableOutput("data_summary"),
@@ -53,7 +54,7 @@ ui <- navbarPage(
       "))
     )
   ),
-  tabPanel("Statistieken", 
+  tabPanel("Statistieken", value = "Statistieken",
     fluidPage(
       h4(textOutput("stats_title")),
       uiOutput("stats")
@@ -65,7 +66,7 @@ ui <- navbarPage(
       uiOutput("plots")
     )
   ),
-  tabPanel("Validatie", 
+  tabPanel("Validatie", value = "Validatie", 
     fluidPage(
       h4(textOutput("validation_title")),
       fluidRow(
@@ -83,7 +84,7 @@ ui <- navbarPage(
       tags$div(style = "height: 20px;") 
     )
   ),
-  tabPanel("Export", 
+  tabPanel("Export", value = "Export",
     fluidPage(
       fluidRow(
         column(3, selectInput("file_type", "Selecteer bestandstype:", choices = c("csv", "xlsx", "svpol"))),
@@ -95,7 +96,7 @@ ui <- navbarPage(
     downloadButton("downloadReport", "Download Rapport")
     )
   ),
-  tabPanel("Info",
+  tabPanel("Info", value = "Info",
     fluidPage(
       tags$div(
         style = "text-align: justify; font-size: 16px;",
@@ -325,7 +326,9 @@ server <- function(input, output, session) {
     req(input$`val-file`)
     val_data <- read.csv(input$`val-file`$datapath)
     current_selected <- selected_df()
-    updated_selected <- bind_rows(current_selected, val_data) %>% distinct()
+    updated_selected <- bind_rows(current_selected, val_data) %>%
+      arrange(is.na(Validatiecode)) %>%  
+      distinct(Monsternummer, Parameter, .keep_all = TRUE)
     selected_df(updated_selected)
   })
 
@@ -368,12 +371,15 @@ server <- function(input, output, session) {
     }
   )
 
-  observe({
-    req(uploaded_data(), input$meetnet)
+  observeEvent(uploaded_data(),{
+    req(uploaded_data())
     import_data <- uploaded_data()
     unique_toestelopstelling <- sort(unique(import_data$MeetpostOpstelling))
+    earliest_date <- min(as.Date(import_data$Begindatum, format = "%Y-%m-%d"))
+    last_date <- max(as.Date(import_data$Begindatum, format = "%Y-%m-%d")) 
     updatePickerInput(session, "meetposten", choices = unique_toestelopstelling)
-    #TODO: ook datums hier laten updaten
+    updateDateInput(session, "start_date", value = earliest_date)
+    updateDateInput(session, "end_date", value = last_date)
   })
 
   observeEvent(input$save_button, {
@@ -392,11 +398,11 @@ server <- function(input, output, session) {
 
   observeEvent(input$selected_table, {
     req(input$selected_table)
-    updated_df <- hot_to_r(input$selected_table)  # Convert the updated table to a data frame
-    selected_df(updated_df)  # Update the reactive value
+    updated_df <- hot_to_r(input$selected_table) 
+    selected_df(updated_df)  
   })
 
-  observe({
+  observeEvent(uploaded_data(), {
     req(uploaded_data())
     data <- uploaded_data()
     invalid_rows <- data[data$Validatiecode != "V", ]
@@ -407,11 +413,33 @@ server <- function(input, output, session) {
         Parameter = invalid_rows$Parameter,
         Waarde = invalid_rows$Resultaat,
         Validatiecode = rep(NA, nrow(invalid_rows)),
-        Validatiecommentaar = paste("[ Labocode: ",invalid_rows$Validatiecode,", Labocommentaar: ",invalid_rows$Commentaar,"]")
+        Validatiecommentaar = paste("[ Labocode: ", invalid_rows$Validatiecode, ", Labocommentaar: ", invalid_rows$Commentaar, "]")
       )
-      updated_selected <- bind_rows(current_selected, new_rows) %>% distinct()
+      updated_selected <- bind_rows(current_selected, new_rows)  %>%
+        arrange(is.na(Validatiecode)) %>%  
+        distinct(Monsternummer, Parameter, .keep_all = TRUE)
       selected_df(updated_selected)
     }
+  })
+
+  observe({
+    req(selected_df())
+    visited_validatie <- reactiveVal(FALSE)  
+
+    observeEvent(input$tabs, {
+      if (input$tabs == "Validatie") {
+        visited_validatie(TRUE)  
+      } else if (visited_validatie() && input$tabs != "Validatie") {
+        if (any(is.na(selected_df()$Validatiecode))) {
+          showModal(modalDialog(
+            title = "Waarschuwing",
+            "Er zijn nog Validatiecodes die niet zijn ingevuld. Controleer deze voordat u verdergaat.",
+            easyClose = TRUE,
+            footer = modalButton("OK")
+          ))
+        }
+      }
+    })
   })
 
 }
