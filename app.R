@@ -1,5 +1,5 @@
 pacman::p_load(shiny, shinyWidgets, readxl, dplyr, tidyr, ggplot2, lubridate,
-               DT, plotly, viridis, ggcorrplot, jsonlite, xlsx, rhandsontable)
+               DT, plotly, viridis, ggcorrplot, jsonlite, openxlsx, rhandsontable)
 
 anc.files = list.files("anc/", 
                           pattern="*.R$", full.names=TRUE, 
