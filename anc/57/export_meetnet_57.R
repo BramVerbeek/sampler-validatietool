@@ -32,7 +32,7 @@ valdata <- valdf %>%
 data <- data %>%
   left_join(valdata %>% select(Monsternummer, Parameter, Validatiecode, Validatiecommentaar), 
       by = c("Monsternummer", "Parameter")) %>%
-  mutate(Validatiecode = coalesce(Validatiecode, "10"),
+  mutate(Validatiecode = coalesce(Validatiecode, 10),
          Validatiecommentaar = coalesce(Validatiecommentaar, ""))
 
 data$saroadcode <- sapply(data$Parameter, get_saroad_code, saroad57 = saroad57)

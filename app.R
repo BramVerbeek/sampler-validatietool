@@ -373,7 +373,7 @@ server <- function(input, output, session) {
     import_data <- uploaded_data()
     unique_toestelopstelling <- sort(unique(import_data$MeetpostOpstelling))
     updatePickerInput(session, "meetposten", choices = unique_toestelopstelling)
-    # TODO: ook datums hier laten updaten
+    #TODO: ook datums hier laten updaten
   })
 
   observeEvent(input$save_button, {
@@ -390,13 +390,29 @@ server <- function(input, output, session) {
     }
   )
 
-
   observeEvent(input$selected_table, {
     req(input$selected_table)
     updated_df <- hot_to_r(input$selected_table)  # Convert the updated table to a data frame
     selected_df(updated_df)  # Update the reactive value
   })
 
+  observe({
+    req(uploaded_data())
+    data <- uploaded_data()
+    invalid_rows <- data[data$Validatiecode != "V", ]
+    if (nrow(invalid_rows) > 0) {
+      current_selected <- selected_df()
+      new_rows <- data.frame(
+        Monsternummer = invalid_rows$Monsternummer,
+        Parameter = invalid_rows$Parameter,
+        Waarde = invalid_rows$Resultaat,
+        Validatiecode = rep(NA, nrow(invalid_rows)),
+        Validatiecommentaar = paste("[ Labocode: ",invalid_rows$Validatiecode,", Labocommentaar: ",invalid_rows$Commentaar,"]")
+      )
+      updated_selected <- bind_rows(current_selected, new_rows) %>% distinct()
+      selected_df(updated_selected)
+    }
+  })
 
 }
 

@@ -1,5 +1,10 @@
 plot_meetnet_57 <- function(df, meetpost) {
 
+df <- lapply(df, function(x) {
+        x <- x[, colSums(x != 0, na.rm = TRUE) > 0 | names(x) %in% c("Monsternummer", "Begindatum", "Einddatum", "Labovalidatie", "Commentaar", "CommentaarAnt")]
+        return(x)
+    })
+
 pdf <- df[[meetpost]]
 
 parameter_lijst <- colnames(pdf)
@@ -130,10 +135,43 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                               line = list(color = '#F25757'),
                               fillcolor = '#ff9595')
 
+M <- pdf %>%
+    select(all_of(parameter_lijst)) %>%
+    mutate(across(everything(), as.numeric))
+
+if (sum(complete.cases(M)) > 1) {
+    CORplot <- ggcorrplot(cor(M, use = "complete.obs"), hc.order = TRUE, type = "lower", tl.cex = 8) +
+        ggtitle("") +
+        theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
+} else {
+    CORplot <- ggplot() + 
+        ggtitle("Not enough complete pairs to compute correlation matrix") +
+        theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
+}
+
+
 yearly_avg <- bigdf2 %>%
-  mutate(Year = lubridate::year(date)) %>%
-  group_by(Year, MeetpostOpstelling, Parameter) %>%
-  summarise(AvgResultaat = mean(Resultaat, na.rm = TRUE), .groups = "drop")
+    mutate(Year = lubridate::year(date)) %>%
+    group_by(MeetpostOpstelling, Parameter) %>%
+    filter(Year == Year[which.max(table(Year))]) %>%
+    group_by(Year, MeetpostOpstelling, Parameter) %>%
+    summarise(AvgResultaat = mean(Resultaat, na.rm = TRUE), .groups = "drop")
+
+YearlyBarPlotMP <- plot_ly(yearly_avg %>% filter(MeetpostOpstelling == meetpost),
+                         x = ~Year,
+                         y = ~AvgResultaat,
+                         color = ~Parameter,
+                         type = 'bar',
+                         colors = colors,
+                         hoverinfo = "text") %>%
+  layout(title = list(text = "<b>Jaarlijkse gemiddelden per parameter voor de geselecteerde meetpost</b>",
+                      x = 0,
+                      xanchor = "left",
+                      font = list(size = 16)),
+         xaxis = list(title = "Jaar"),
+         yaxis = list(title = "Gemiddelde Concentratie (µg/m³)"),
+         margin = list(l = 40, r = 40, t = 40, b = 40),
+         showlegend = TRUE)
 
 YearlyBarPlot <- plot_ly(yearly_avg %>% filter(MeetpostOpstelling != meetpost),
                          x = ~Year,
@@ -143,7 +181,7 @@ YearlyBarPlot <- plot_ly(yearly_avg %>% filter(MeetpostOpstelling != meetpost),
                          type = 'bar',
                          colors = greys_palette,
                          hoverinfo = "text") %>%
-  layout(title = list(text = "<b>Jaarlijkse gemiddelden per parameter en meetpost</b>",
+  layout(title = list(text = "<b>Jaarlijkse gemiddelden per parameter voor alle meetposten</b>",
                       x = 0,
                       xanchor = "left",
                       font = list(size = 16)),
@@ -156,6 +194,6 @@ YearlyBarPlot <- plot_ly(yearly_avg %>% filter(MeetpostOpstelling != meetpost),
                                 marker = list(color = '#F25757'))
 
 
-return(list(TSPlot, PBoxplot, TSPlot2, BBoxplot, YearlyBarPlot))
+return(list(TSPlot, PBoxplot, CORplot, YearlyBarPlotMP, TSPlot2, BBoxplot, YearlyBarPlot))
 }
 

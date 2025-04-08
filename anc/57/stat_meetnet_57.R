@@ -5,6 +5,12 @@ stat_meetnet_57 <- function(bigdf, df, meetpost) {
   df_list <- split(bigdf, bigdf$MeetpostOpstelling)
   bigpdf <- df_list[[meetpost]]
 
+  df <- lapply(df, function(x) {
+        x <- x[, colSums(x != 0, na.rm = TRUE) > 0 | names(x) %in% c("Monsternummer", "Begindatum", "Einddatum", "Labovalidatie", "Commentaar", "CommentaarAnt")]
+        return(x)
+    })
+
+
   pdf <- df[[meetpost]]
   
   days_table <- bigpdf %>%
