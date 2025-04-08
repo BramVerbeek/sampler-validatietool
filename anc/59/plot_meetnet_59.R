@@ -1,5 +1,10 @@
 plot_meetnet_59 <- function(df, meetpost) {
 
+df <- lapply(df, function(x) {
+        x <- x[, colSums(x != 0, na.rm = TRUE) > 0 | names(x) %in% c("Monsternummer", "Begindatum", "Einddatum", "Labovalidatie", "Commentaar", "CommentaarAnt")]
+        return(x)
+    })
+
 pdf <- df[[meetpost]]
 
 parameter_lijst <- colnames(pdf)
@@ -24,13 +29,7 @@ TSPlot <- plot_ly(longdf,
                 marker = list(size = 5),
                 hoverinfo = "x+y+text",              
                 text = ~paste("Parameter:", Parameter)) %>%
-        layout(title = list(text = "<b>Tijdsreeks van de metingen voor elke parameter</b>",
-                            x = 0,                                     
-                            xanchor = "left",                            
-                            font = list(                         
-                                size = 16                      
-                            )
-        ),
+        layout(
             xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
             yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
             margin = list(l = 40, r = 40, t = 40, b = 40),
@@ -48,13 +47,7 @@ PBoxplot <- plot_ly(longdf,
                 jitter = 0.5, 
                 pointpos = 0,
                 hoverinfo = "all") %>%
-        layout(title = list(text = "<b>Boxplot van de metingen voor elke parameter</b>",
-                            x = 0,                                     
-                            xanchor = "left",                            
-                            font = list(                         
-                                size = 16                      
-                            )
-        ),
+        layout(
             xaxis = list(title = "Parameter", autorange = TRUE),
             yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
             margin = list(l = 40, r = 40, t = 40, b = 40),
@@ -80,7 +73,7 @@ df2 <- df %>%
       x <- x %>%
         pivot_longer(cols = -c(Monsternummer, Begindatum, Einddatum), names_to = "Parameter", values_to = "Resultaat") %>%
         filter(!is.na(Resultaat)) %>%
-        mutate(Resultaat = as.numeric(Resultaat), date = Einddatum)
+        mutate(Resultaat = as.numeric(Resultaat), date = Begindatum)
       return(x)
     })
 
@@ -99,13 +92,7 @@ TSPlot2 <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                     marker = list(size = 5),
                     hoverinfo = "x+y+text",              
                     text = ~paste("Meetpost:", MeetpostOpstelling)) %>% 
-                    layout(title = list(text = "<b>Tijdreeks van de metingen per parameter</b>",
-                                        x = 0,                                     
-                                        xanchor = "left",                            
-                                        font = list(                         
-                                            size = 16                      
-                                        )
-                    ),
+                    layout(
                         xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
                         yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
                         margin = list(l = 40, r = 40, t = 40, b = 40),
@@ -127,13 +114,7 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                             jitter = 0.5, 
                             pointpos = 0,
                             hoverinfo = "all") %>%
-                    layout(title = list(text = "<b>Boxplot van de metingen per parameter</b>",
-                                        x = 0,                                     
-                                        xanchor = "left",                            
-                                        font = list(                         
-                                            size = 16                      
-                                        )
-                    ),
+                    layout(
                         xaxis = list(title = "Meetpost", autorange = TRUE),
                         yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
                         margin = list(l = 40, r = 40, t = 40, b = 40),
@@ -144,6 +125,68 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                               fillcolor = '#ff9595')
 
 
-return(list(TSPlot, PBoxplot, CORplot, TSPlot2, BBoxplot))
+
+big_avg <- bigdf2 %>%
+    group_by(MeetpostOpstelling, Parameter) %>%
+    summarise(AvgResultaat = mean(Resultaat, na.rm = TRUE), .groups = "drop")
+
+YearlyBarPlotMP <- plot_ly(big_avg %>% filter(MeetpostOpstelling == meetpost),
+                         x = ~Parameter,
+                         y = ~AvgResultaat,
+                         color = ~Parameter,
+                         type = 'bar',
+                         colors = colors,
+                         hoverinfo = "text") %>%
+  layout(
+         xaxis = list(title = ""),
+         yaxis = list(title = "Gemiddelde Concentratie (µg/m³)"),
+         margin = list(l = 40, r = 40, t = 40, b = 40),
+         showlegend = FALSE)
+
+YearlyBarPlot <- plot_ly(big_avg %>% filter(MeetpostOpstelling != meetpost),
+                         x = ~MeetpostOpstelling,
+                         y = ~AvgResultaat,
+                         color = ~MeetpostOpstelling,
+                         frame = ~Parameter,
+                         type = 'bar',
+                         colors = greys_palette,
+                         hoverinfo = "text") %>%
+  layout(
+         xaxis = list(title = ""),
+         yaxis = list(title = "Gemiddelde Concentratie (µg/m³)"),
+         margin = list(l = 40, r = 40, t = 40, b = 40),
+         showlegend = FALSE)
+        YearlyBarPlot <- YearlyBarPlot %>%
+            add_trace(data = big_avg %>% filter(MeetpostOpstelling == meetpost),
+                                marker = list(color = '#F25757'))
+
+heatmap_data <- pdf %>%
+    select(c(all_of(parameter_lijst),"Monsternummer")) %>%
+    pivot_longer(cols = -c(Monsternummer), names_to = "Parameter", values_to = "Value")
+
+HeatmapPlot <- plot_ly(
+  heatmap_data,
+  x = ~Parameter,
+  y = ~Monsternummer,
+  z = ~Value,
+  type = "heatmap",
+  colorscale = "Jet"
+) %>%
+  layout(
+    xaxis = list(title = "Parameter"),
+    yaxis = list(title = "Monsternummer"),
+    margin = list(l = 40, r = 40, t = 40, b = 40)
+  )
+
+return(list(
+    list(title = paste("Tijdsreeks van de metingen voor meetpost ", meetpost), plot = TSPlot),
+    list(title = paste("Boxplot van de metingen voor meetpost ", meetpost), plot = PBoxplot),
+    list(title = paste("Correlatiematrix van parameters voor meetpost ", meetpost), plot = CORplot),
+    list(title = paste("Gemiddelden per parameter voor meetpost ", meetpost), plot = YearlyBarPlotMP),
+    list(title = paste("Heatmap van waarden voor meetpost ", meetpost), plot = HeatmapPlot),
+    list(title = "Tijdreeks van de metingen per parameter voor alle meetposten", plot = TSPlot2),
+    list(title = "Boxplot van de metingen per parameter voor alle meetposten", plot = BBoxplot),
+    list(title = "Gemiddelden per parameter voor alle meetposten", plot = YearlyBarPlot)
+))
 }
 

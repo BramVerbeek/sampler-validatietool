@@ -1,10 +1,19 @@
-h4 {
-  color: #1a8d71; /* Change text color */
+h3 {
+  color: #1a708d; /* Change text color */
   font-size: 24px; /* Change font size */
   font-weight: bold; /* Make text bold */
   text-align: center; /* Center align text */
   margin-top: 20px; /* Add top margin */
   margin-bottom: 20px; /* Add bottom margin */
+}
+
+h4 {
+  color: #1a8d71; /* Change text color */
+  font-size: 21px; /* Change font size */
+  font-weight: bold; /* Make text bold */
+  text-align: center; /* Center align text */
+  margin-top: 25px; /* Add top margin */
+  margin-bottom: 15px; /* Add bottom margin */
 }
 
 a:link {

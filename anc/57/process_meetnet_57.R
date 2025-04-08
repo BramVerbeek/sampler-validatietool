@@ -1,10 +1,13 @@
 process_meetnet_57 <- function(df) {
 
-  df <- df %>% filter(!(Veldblanco %in% c("V")))
-  
-  df <- df %>% mutate(Commentaar = ifelse(Commentaar == " ", "", Commentaar))
+  df <- df %>% 
+  mutate(Commentaar = ifelse(Commentaar == " ", NA, Commentaar)) %>%
+  mutate(Commentaar = ifelse(Commentaar == "", NA, Commentaar))
 
-  df_list <- split(df, df$MeetpostOpstelling)
+  df1 <- df %>% filter(!(Veldblanco %in% c("V")))
+  df2 <- df %>% filter((Veldblanco %in% c("V")))
+
+  df_list <- split(df1, df1$MeetpostOpstelling)
   
   df_list <- lapply(df_list, function(x) {
     x <- x[, !names(x) %in% c("MeetpostOpstelling", "Veldblanco", "Meetnet", "Labo", "Teken",
@@ -60,6 +63,11 @@ process_meetnet_57 <- function(df) {
 
     return(x)
     })
+
+  erased_list <- split(df2, df2$MeetpostOpstelling)
     
-  return(df_list)
+  return(list(
+    output = df_list,
+    erased = erased_list)
+    )
 }

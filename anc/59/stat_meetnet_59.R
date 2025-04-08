@@ -11,9 +11,10 @@ stat_meetnet_59 <- function(bigdf, df, meetpost) {
            Analysedatum = as.Date(Analysedatum, format = "%Y-%m-%d"),
            Tijdsinterval = as.numeric(difftime(Analysedatum, Begindatum, units = "days")),
            Houdbaarheid = ifelse(Tijdsinterval > 30, "Niet OK", "OK")) %>%
-    select(Monsternummer, Parameter, Begindatum, Analysedatum, Tijdsinterval, Houdbaarheid) %>%
-    filter(Houdbaarheid == "Niet OK")
-  
+    select(Monsternummer, Begindatum, Analysedatum, Tijdsinterval, Houdbaarheid) %>%
+    filter(Houdbaarheid == "Niet OK") %>%
+    arrange(Monsternummer) %>% distinct()
+
   parameter_columns <- setdiff(colnames(pdf), c("Monsternummer", "Begindatum", "Einddatum", "Analysedatum", "Labovalidatie", "Commentaar", "CommentaarAnt"))
   
   numeric_columns <- parameter_columns[sapply(pdf[parameter_columns], is.numeric)]
@@ -33,5 +34,8 @@ stat_meetnet_59 <- function(bigdf, df, meetpost) {
     separate(Parameter, into = c("Parameter", "Statistiek"), sep = "_") %>%
     pivot_wider(names_from = Parameter, values_from = Value)
   
-  return(list(days_table, stats_table))
+  return(list(
+    list(title = "Houdbaarheid van monsters", data = days_table),
+    list(title = "Basisstatistieken", data = stats_table)
+  ))
 }

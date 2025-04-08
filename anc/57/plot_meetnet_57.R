@@ -29,13 +29,7 @@ TSPlot <- plot_ly(longdf,
                 marker = list(size = 5),
                 hoverinfo = "x+y+text",              
                 text = ~paste("Parameter:", Parameter)) %>%
-        layout(title = list(text = "<b>Tijdsreeks van de metingen voor elke parameter</b>",
-                            x = 0,                                     
-                            xanchor = "left",                            
-                            font = list(                         
-                                size = 16                      
-                            )
-        ),
+        layout(
             xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
             yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
             margin = list(l = 40, r = 40, t = 40, b = 40),
@@ -53,18 +47,25 @@ PBoxplot <- plot_ly(longdf,
                 jitter = 0.5, 
                 pointpos = 0,
                 hoverinfo = "all") %>%
-        layout(title = list(text = "<b>Boxplot van de metingen voor elke parameter</b>",
-                            x = 0,                                     
-                            xanchor = "left",                            
-                            font = list(                         
-                                size = 16                      
-                            )
-        ),
+        layout(
             xaxis = list(title = "Parameter", autorange = TRUE),
             yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
             margin = list(l = 40, r = 40, t = 40, b = 40),
             showlegend = FALSE)
 
+M <- pdf %>%
+    select(all_of(parameter_lijst)) %>%
+    mutate(across(everything(), as.numeric))
+
+if (sum(complete.cases(M)) > 1) {
+    CORplot <- ggcorrplot(cor(M, use = "complete.obs"), hc.order = TRUE, type = "lower", tl.cex = 8) +
+        ggtitle("") +
+        theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
+} else {
+    CORplot <- ggplot() + 
+        ggtitle("Not enough complete pairs to compute correlation matrix") +
+        theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
+}
 
 df2 <- df %>%
     lapply(function(x) {
@@ -72,7 +73,7 @@ df2 <- df %>%
       x <- x %>%
         pivot_longer(cols = -c(Monsternummer, Begindatum, Einddatum), names_to = "Parameter", values_to = "Resultaat") %>%
         filter(!is.na(Resultaat)) %>%
-        mutate(Resultaat = as.numeric(Resultaat), date = Einddatum)
+        mutate(Resultaat = as.numeric(Resultaat), date = Begindatum)
       return(x)
     })
 
@@ -91,17 +92,10 @@ TSPlot2 <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                     marker = list(size = 5),
                     hoverinfo = "x+y+text",              
                     text = ~paste("Meetpost:", MeetpostOpstelling)) %>% 
-                    layout(title = list(text = "<b>Tijdreeks van de metingen per parameter voor alle meetposten</b>",
-                                        x = 0,                                     
-                                        xanchor = "left",                            
-                                        font = list(                         
-                                            size = 16                      
-                                        )
-                    ),
-                        xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
-                        yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
-                        margin = list(l = 40, r = 40, t = 40, b = 40),
-                        showlegend = TRUE) %>%  
+                layout(xaxis = list(title = "Begindatum", type = "date", autorange = TRUE),  
+                       yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
+                       margin = list(l = 40, r = 40, t = 40, b = 40),
+                       showlegend = TRUE) %>%  
                     add_trace(data = bigdf2 %>% filter(MeetpostOpstelling == meetpost),
                               marker = list(color = '#F25757'),
                               line = list(color = '#F25757'))
@@ -119,13 +113,7 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                             jitter = 0.5, 
                             pointpos = 0,
                             hoverinfo = "all") %>%
-                    layout(title = list(text = "<b>Boxplot van de metingen per parameter voor alle meetposten</b>",
-                                        x = 0,                                     
-                                        xanchor = "left",                            
-                                        font = list(                         
-                                            size = 16                      
-                                        )
-                    ),
+                    layout(
                         xaxis = list(title = "Meetpost", autorange = TRUE),
                         yaxis = list(title = "Concentratie (µg/m³)", autorange = TRUE),
                         margin = list(l = 40, r = 40, t = 40, b = 40),
@@ -135,65 +123,65 @@ BBoxplot <- plot_ly(bigdf2 %>% filter(MeetpostOpstelling != meetpost),
                               line = list(color = '#F25757'),
                               fillcolor = '#ff9595')
 
-M <- pdf %>%
-    select(all_of(parameter_lijst)) %>%
-    mutate(across(everything(), as.numeric))
-
-if (sum(complete.cases(M)) > 1) {
-    CORplot <- ggcorrplot(cor(M, use = "complete.obs"), hc.order = TRUE, type = "lower", tl.cex = 8) +
-        ggtitle("") +
-        theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
-} else {
-    CORplot <- ggplot() + 
-        ggtitle("Not enough complete pairs to compute correlation matrix") +
-        theme(plot.title = element_text(hjust = 0, size = 14, face = "bold", color = "#5b5b5b"))
-}
-
-
-yearly_avg <- bigdf2 %>%
-    mutate(Year = lubridate::year(date)) %>%
+big_avg <- bigdf2 %>%
     group_by(MeetpostOpstelling, Parameter) %>%
-    filter(Year == Year[which.max(table(Year))]) %>%
-    group_by(Year, MeetpostOpstelling, Parameter) %>%
     summarise(AvgResultaat = mean(Resultaat, na.rm = TRUE), .groups = "drop")
 
-YearlyBarPlotMP <- plot_ly(yearly_avg %>% filter(MeetpostOpstelling == meetpost),
-                         x = ~Year,
+YearlyBarPlotMP <- plot_ly(big_avg %>% filter(MeetpostOpstelling == meetpost),
+                         x = ~Parameter,
                          y = ~AvgResultaat,
                          color = ~Parameter,
                          type = 'bar',
                          colors = colors,
                          hoverinfo = "text") %>%
-  layout(title = list(text = "<b>Jaarlijkse gemiddelden per parameter voor de geselecteerde meetpost</b>",
-                      x = 0,
-                      xanchor = "left",
-                      font = list(size = 16)),
-         xaxis = list(title = "Jaar"),
+  layout(xaxis = list(title = ""),
          yaxis = list(title = "Gemiddelde Concentratie (µg/m³)"),
          margin = list(l = 40, r = 40, t = 40, b = 40),
-         showlegend = TRUE)
+         showlegend = FALSE)
 
-YearlyBarPlot <- plot_ly(yearly_avg %>% filter(MeetpostOpstelling != meetpost),
-                         x = ~Year,
+YearlyBarPlot <- plot_ly(big_avg %>% filter(MeetpostOpstelling != meetpost),
+                         x = ~MeetpostOpstelling,
                          y = ~AvgResultaat,
                          color = ~MeetpostOpstelling,
                          frame = ~Parameter,
                          type = 'bar',
                          colors = greys_palette,
                          hoverinfo = "text") %>%
-  layout(title = list(text = "<b>Jaarlijkse gemiddelden per parameter voor alle meetposten</b>",
-                      x = 0,
-                      xanchor = "left",
-                      font = list(size = 16)),
-         xaxis = list(title = "Jaar"),
+  layout(xaxis = list(title = ""),
          yaxis = list(title = "Gemiddelde Concentratie (µg/m³)"),
          margin = list(l = 40, r = 40, t = 40, b = 40),
-         showlegend = TRUE)
-        YearlyBarPlot <- YearlyBarPlot %>%
-            add_trace(data = yearly_avg %>% filter(MeetpostOpstelling == meetpost),
-                                marker = list(color = '#F25757'))
+         showlegend = FALSE)
+YearlyBarPlot <- YearlyBarPlot %>%
+                add_trace(data = big_avg %>% filter(MeetpostOpstelling == meetpost),
+                          marker = list(color = '#F25757'))
 
+heatmap_data <- pdf %>%
+    select(c(all_of(parameter_lijst),"Monsternummer")) %>%
+    pivot_longer(cols = -c(Monsternummer), names_to = "Parameter", values_to = "Value")
 
-return(list(TSPlot, PBoxplot, CORplot, YearlyBarPlotMP, TSPlot2, BBoxplot, YearlyBarPlot))
+HeatmapPlot <- plot_ly(
+  heatmap_data,
+  x = ~Parameter,
+  y = ~Monsternummer,
+  z = ~Value,
+  type = "heatmap",
+  colorscale = "Jet"
+) %>%
+  layout(
+    xaxis = list(title = "Parameter"),
+    yaxis = list(title = "Monsternummer"),
+    margin = list(l = 40, r = 40, t = 40, b = 40)
+  )
+
+return(list(
+    list(title = paste("Tijdsreeks van de metingen voor meetpost ", meetpost), plot = TSPlot),
+    list(title = paste("Boxplot van de metingen voor meetpost ", meetpost), plot = PBoxplot),
+    list(title = paste("Correlatiematrix van parameters voor meetpost ", meetpost), plot = CORplot),
+    list(title = paste("Gemiddelden per parameter voor meetpost ", meetpost), plot = YearlyBarPlotMP),
+    list(title = paste("Heatmap van waarden voor meetpost ", meetpost), plot = HeatmapPlot),
+    list(title = "Tijdreeks van de metingen per parameter voor alle meetposten", plot = TSPlot2),
+    list(title = "Boxplot van de metingen per parameter voor alle meetposten", plot = BBoxplot),
+    list(title = "Gemiddelden per parameter voor alle meetposten", plot = YearlyBarPlot)
+  ))
 }
 
