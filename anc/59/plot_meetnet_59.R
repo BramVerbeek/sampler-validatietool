@@ -181,8 +181,8 @@ HeatmapPlot <- plot_ly(
 return(list(
     list(title = paste("Tijdsreeks van de metingen voor meetpost ", meetpost), plot = TSPlot),
     list(title = paste("Boxplot van de metingen voor meetpost ", meetpost), plot = PBoxplot),
-    list(title = paste("Correlatiematrix van parameters voor meetpost ", meetpost), plot = CORplot),
     list(title = paste("Gemiddelden per parameter voor meetpost ", meetpost), plot = YearlyBarPlotMP),
+    list(title = paste("Correlatiematrix van parameters voor meetpost ", meetpost), plot = CORplot),
     list(title = paste("Heatmap van waarden voor meetpost ", meetpost), plot = HeatmapPlot),
     list(title = "Tijdreeks van de metingen per parameter voor alle meetposten", plot = TSPlot2),
     list(title = "Boxplot van de metingen per parameter voor alle meetposten", plot = BBoxplot),

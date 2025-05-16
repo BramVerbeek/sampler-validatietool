@@ -118,7 +118,15 @@ ui <- navbarPage(
           <b><a href='mailto:b.verbeek@vmm.be'>b.verbeek@vmm.be</a></b>. </p>"),
         tags$hr(style = "border-top: 5px solid #E7E5E5;"),
         HTML("<p>
-            <b>Gebruikshandleiding:</b> <br>   
+            <b>Gebruikshandleiding:</b> <br>
+            1. Selecteer het meetnet dat u wilt valideren. <br>
+            2. Upload het CSV-bestand met ruwe data. <br> 
+            3. Selecteer de meetpost die u wilt valideren. <br>
+            4. Bekijk de verwerkte data, statistieken en plots. <br>
+            5. Voer de validatie uit door de validatiecodes en commentaar in te vullen. <br>
+            6. Herhaal stappen 4 en 5 voor alle meetposten. <br>
+            7.1 <b>Is de dataset compleet?</b> Exporteer de gevalideerde data en download het rapport. <br>
+            7.2 <b>Is het een tussentijdse validatie?</b> Sla de validatie op voor later gebruik. <br>
         </p>")
       )
     )
